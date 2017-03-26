@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JS Drum Kit</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+  <div class="keys">
+    <div data-key="65" class="key">
+      <kbd>A</kbd>
+      <span class="sound">clap</span>
+    </div>
+    <div data-key="83" class="key">
+      <kbd>S</kbd>
+      <span class="sound">hihat</span>
+    </div>
+    <div data-key="68" class="key">
+      <kbd>D</kbd>
+      <span class="sound">kick</span>
+    </div>
+    <div data-key="70" class="key">
+      <kbd>F</kbd>
+      <span class="sound">openhat</span>
+    </div>
+    <div data-key="71" class="key">
+      <kbd>G</kbd>
+      <span class="sound">boom</span>
+    </div>
+    <div data-key="72" class="key">
+      <kbd>H</kbd>
+      <span class="sound">ride</span>
+    </div>
+    <div data-key="74" class="key">
+      <kbd>J</kbd>
+      <span class="sound">snare</span>
+    </div>
+    <div data-key="75" class="key">
+      <kbd>K</kbd>
+      <span class="sound">tom</span>
+    </div>
+    <div data-key="76" class="key">
+      <kbd>L</kbd>
+      <span class="sound">tink</span>
+    </div>
+  </div>
+
+  <div class="keys">
+    <div class="control start-record">
+      <button class="start-record">start record</button>
+    </div>
+    <div class="control stop-record">
+      <button class="stop-record" disabled>stop record</button>
+    </div>
+    <div class="control start">
+      <button class="start">start player</button>
+    </div>
+    <div class="control stop">
+      <button class="stop" disabled>stop player</button>
+    </div>
+      <label class="control">
+          Содержимое магнитофонной ленты:<br>
+        <textarea class="melody"></textarea>
+      </label>
+  </div>
+
+  <audio data-key="65" src="sounds/clap.wav"></audio>
+  <audio data-key="83" src="sounds/hihat.wav"></audio>
+  <audio data-key="68" src="sounds/kick.wav"></audio>
+  <audio data-key="70" src="sounds/openhat.wav"></audio>
+  <audio data-key="71" src="sounds/boom.wav"></audio>
+  <audio data-key="72" src="sounds/ride.wav"></audio>
+  <audio data-key="74" src="sounds/snare.wav"></audio>
+  <audio data-key="75" src="sounds/tom.wav"></audio>
+  <audio data-key="76" src="sounds/tink.wav"></audio>
+
+<script>
+    // selectors
+    const startButton = document.querySelector('button[class="start"]');
+    const stopButton = document.querySelector('button[class="stop"]');
+    const startRecordButton = document.querySelector('button[class="start-record"]');
+    const stopRecordButton = document.querySelector('button[class="stop-record"]');
+    const textarea = document.querySelector('.melody');
+    const state = {
+        'recording': false,
+        'interval': null,
+        'playBackStartTime': null,
+        'startRecordingDate': null,
+        'tape': []
+    };
+
+    // listeners
+    startButton.addEventListener('click', () => {
+        console.info('Start playing');
+        try {
+            const selectedTape = JSON.parse(textarea.value);
+            disableButton(startButton);
+            enableButton(stopButton);
+            state.playBackStartTime = new Date().getTime();
+            state.interval = setInterval(function(){
+                const diff = (new Date().getTime() - state.playBackStartTime);
+                if(selectedTape.length === 0) {
+                    stopButton.click();
+                }else if(diff > selectedTape[0].time) {
+                    playSoundByKey(selectedTape[0].key);
+                    selectedTape.shift();
+                }
+            }, 1);
+        }catch (error) {
+            console.error('Ошибка при парсинге JSON!');
+            console.log(error)
+        }
+    });
+
+    stopButton.addEventListener('click', () => {
+        console.info('Stop playing');
+        disableButton(stopButton);
+        enableButton(startButton);
+        clearInterval(state.interval);
+    });
+
+    startRecordButton.addEventListener('click', () => {
+        console.info('Starting recording');
+        disableButton(startRecordButton);
+        enableButton(stopRecordButton);
+        state.tape.length = 0;
+        textarea.value = '';
+        state.recording = true;
+        state.startRecordingDate = new Date().getTime();
+    });
+
+    stopRecordButton.addEventListener('click', () => {
+        console.info('Stop recording');
+        disableButton(stopRecordButton);
+        enableButton(startRecordButton);
+        state.recording = false;
+        state.startRecordingDate = null
+    });
+
+    // functions
+
+    /**
+     * Функция отключает кнопку
+     */
+    const disableButton = (element) => {
+        element.disabled = true;
+    };
+
+    /**
+     * Функция включает кнопку
+     */
+    const enableButton = (element) => {
+        element.disabled = false;
+    };
+
+    /**
+     * Функция воспроизведения звука и изменения внешнего вида кнопки
+     * @param keyCode
+     */
+  const playSoundByKey = (keyCode) => {
+      const audio = document.querySelector(`audio[data-key="${keyCode}"]`);
+      if (!audio) return;
+      const key = document.querySelector(`div[data-key="${keyCode}"]`);
+      key.classList.add('playing');
+      audio.currentTime = 0;
+      audio.play();
+  };
+
+    /**
+     * Функция убирает транзишн с елемента и статус проигрывания с кнопки
+     * @param e
+     */
+    const removeTransition = (e) => {
+      if (e.propertyName !== 'transform') return;
+      e.target.classList.remove('playing');
+    };
+
+    /**
+     * Обработчик нажатия на клавишу воспроизводящую звук
+     * @param e
+     */
+    const playSound = (e) => {
+        if(state.recording === true) {
+            const diff = (new Date().getTime() - state.startRecordingDate);
+            state.tape.push({'time': diff, 'key': e.keyCode});
+            textarea.value = JSON.stringify(state.tape);
+        }
+        playSoundByKey(e.keyCode)
+    };
+
+    // Добавление обработчиков для снятия выделения кнопок
+    const keys = Array.from(document.querySelectorAll('.key'));
+    keys.forEach(key => key.addEventListener('transitionend', removeTransition));
+    window.addEventListener('keydown', playSound);
+</script>
+
+
+</body>
+</html>
